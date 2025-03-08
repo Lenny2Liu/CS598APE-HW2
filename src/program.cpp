@@ -22,32 +22,45 @@ template <int MaxSize = MAX_STACK_SIZE>
 void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
                     const uint64_t n_rows, const uint64_t n_progs) {
   for (uint64_t pid = 0; pid < n_progs; ++pid) {
-    for (uint64_t row_id = 0; row_id < n_rows; ++row_id) {
-
-      stack<float, MaxSize> eval_stack;
-      program_t curr_p = d_progs + pid; // Current program
-
-      int end = curr_p->len - 1;
-      node *curr_node = curr_p->nodes + end;
-
-      float res = 0.0f;
-      float in[2] = {0.0f, 0.0f};
-
-      while (end >= 0) {
-        if (detail::is_nonterminal(curr_node->t)) {
-          int ar = detail::arity(curr_node->t);
-          in[0] = eval_stack.pop(); // Min arity of function is 1
-          if (ar > 1)
-            in[1] = eval_stack.pop();
+    // Pointer to the current program's AST
+    program_t curr_p = d_progs + pid;
+    std::vector<std::vector<float>> eval_stack;
+    eval_stack.reserve(MaxSize);
+    for (int idx = curr_p->len - 1; idx >= 0; --idx) {
+      const node &curr_node = curr_p->nodes[idx];
+      if (genetic::detail::is_nonterminal(curr_node.t)) {
+        int ar = genetic::detail::arity(curr_node.t);
+        std::vector<float> operand0 = std::move(eval_stack.back());
+        eval_stack.pop_back();
+        std::vector<float> operand1;
+        if (ar > 1) {
+          operand1 = std::move(eval_stack.back());
+          eval_stack.pop_back();
         }
-        res = detail::evaluate_node(*curr_node, data, n_rows, row_id, in);
-        eval_stack.push(res);
-        curr_node--;
-        end--;
+        std::vector<float> result(n_rows);
+        for (uint64_t row = 0; row < n_rows; ++row) {
+          float in_vals[2] = { operand0[row], (ar > 1 ? operand1[row] : 0.0f) };
+          result[row] = genetic::detail::evaluate_node(curr_node, data, n_rows, row, in_vals);
+        }
+        eval_stack.push_back(std::move(result));
+      } else {
+        std::vector<float> result(n_rows);
+        if (curr_node.t == node::type::constant) {
+          std::fill(result.begin(), result.end(), curr_node.u.val);
+        } else if (curr_node.t == node::type::variable) {
+          int fid = curr_node.u.fid;
+          const float* col_ptr = data + (fid * n_rows);
+          for (uint64_t row = 0; row < n_rows; ++row) {
+            result[row] = col_ptr[row];
+          }
+        }
+        eval_stack.push_back(std::move(result));
       }
-
-      // Outputs stored in col-major format
-      y_pred[pid * n_rows + row_id] = eval_stack.pop();
+    }
+    std::vector<float> final_result = std::move(eval_stack.back());
+    eval_stack.pop_back();
+    for (uint64_t row = 0; row < n_rows; ++row) {
+      y_pred[pid * n_rows + row] = final_result[row];
     }
   }
 }
