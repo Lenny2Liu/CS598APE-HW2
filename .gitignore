@@ -19,7 +19,10 @@
 # Fortran module files
 *.mod
 *.smod
-
+*.txt
+*.data
+*.data.old
+*.folded
 # Compiled Static libraries
 *.lai
 *.la
@@ -33,4 +36,7 @@
 
 compile_commands.json
 .cache/
+.DS_Store
+FlameGraph/
 genetic_benchmark
+perf_results/
