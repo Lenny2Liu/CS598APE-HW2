@@ -78,19 +78,59 @@ program::program(const program &src)
   std::copy(src.nodes, src.nodes + src.len, nodes);
 }
 
-program &program::operator=(const program &src) {
-  len = src.len;
-  depth = src.depth;
-  raw_fitness_ = src.raw_fitness_;
-  metric = src.metric;
-  mut_type = src.mut_type;
+program &program::operator=(const program &src)
+{
+    if (this != &src) {
+        len = src.len;
+        depth = src.depth;
+        raw_fitness_ = src.raw_fitness_;
+        metric = src.metric;
+        mut_type = src.mut_type;
 
-  // Copy nodes
-  delete[] nodes;
-  nodes = new node[len];
-  std::copy(src.nodes, src.nodes + src.len, nodes);
+        // Copy nodes
+        delete[] nodes;
+        nodes = new node[len];
+        std::copy(src.nodes, src.nodes + src.len, nodes);
+    }
+    return *this;
+}
 
-  return *this;
+program::program(program&& src) noexcept
+    : len(src.len),
+      depth(src.depth),
+      raw_fitness_(src.raw_fitness_),
+      metric(src.metric),
+      mut_type(src.mut_type),
+      nodes(src.nodes) // "steal" the pointer
+{
+    // Null out the source so it won't delete[] nodes
+    src.nodes = nullptr;
+    src.len = 0;
+    src.depth = 0;
+    src.raw_fitness_ = 0.0f;
+}
+
+program &program::operator=(program&& src) noexcept
+{
+    if (this != &src) {
+        // Release our old resource
+        delete[] nodes;
+
+        // Steal resources from src
+        len = src.len;
+        depth = src.depth;
+        raw_fitness_ = src.raw_fitness_;
+        metric = src.metric;
+        mut_type = src.mut_type;
+        nodes = src.nodes;
+
+        // Null out src so it won't delete[] these nodes
+        src.nodes = nullptr;
+        src.len = 0;
+        src.depth = 0;
+        src.raw_fitness_ = 0.0f;
+    }
+    return *this;
 }
 
 void compute_metric(int n_rows, int n_progs, const float *y,

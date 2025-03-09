@@ -14,14 +14,13 @@ for dataset in "${DATASETS[@]}"; do
     echo "Running perf for dataset: $dataset"
 
     # Run perf record
-    perf record -F 99 -g -- ./genetic_benchmark "$dataset"
+    perf record -F 99 --call-graph fp ./genetic_benchmark "$dataset"
 
     # Process perf data
     echo "Generating flame graph for $dataset..."
     perf script | "$FLAMEGRAPH_DIR/stackcollapse-perf.pl" > perf_results/"$dataset".folded
-    "$FLAMEGRAPH_DIR/flamegraph.pl" perf_results/"$dataset".folded > perf_results/"$dataset"_vec.svg
+    "$FLAMEGRAPH_DIR/flamegraph.pl" perf_results/"$dataset".folded > perf_results/"$dataset"_mf.svg
 
-    echo "Flame graph for $dataset saved at perf_results/$dataset.svg"
 done
 
 echo "All datasets processed. View flame graphs in the 'perf_results' folder."

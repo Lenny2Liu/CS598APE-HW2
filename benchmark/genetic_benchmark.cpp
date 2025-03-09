@@ -142,16 +142,11 @@ float accuracy(const std::vector<float> &y_true,
 using namespace genetic;
 
 void insertionSortPrograms(genetic::program *programs, int size) {
-  for (int i = 1; i < size; i++) {
-    genetic::program key(programs[i]);
-    int j = i - 1;
-
-    while (j >= 0 && (programs[j].raw_fitness_ > key.raw_fitness_)) {
-      programs[j + 1] = programs[j];
-      j--;
+  std::sort(programs, programs + size, 
+    [](const genetic::program &a, const genetic::program &b) {
+      return a.raw_fitness_ < b.raw_fitness_;
     }
-    programs[j + 1] = key;
-  }
+  );
 }
 
 void run_symbolic_regression(const std::string &dataset_file) {

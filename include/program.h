@@ -60,6 +60,10 @@ struct program {
   metric_t metric;
   /** mutation type responsible for production */
   mutation_t mut_type;
+
+  program(program &&src) noexcept;
+  program &operator=(program &&src) noexcept;
+
 }; // struct program
 
 /** program_t is a shorthand for device programs */
