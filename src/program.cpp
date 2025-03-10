@@ -24,25 +24,30 @@ void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
   for (uint64_t pid = 0; pid < n_progs; ++pid) {
     // Pointer to the current program's AST
     program_t curr_p = d_progs + pid;
-    std::vector<std::vector<float>> eval_stack;
-    eval_stack.reserve(MaxSize);
+    int st_cap = curr_p->len;
+    std::vector<std::vector<float>> eval_stack(st_cap);
+    for (int i = 0; i < st_cap; ++i) {
+      eval_stack[i].resize(n_rows);
+    }
+    int sp = 0; // soul power!!!!!!
     for (int idx = curr_p->len - 1; idx >= 0; --idx) {
       const node &curr_node = curr_p->nodes[idx];
       if (genetic::detail::is_nonterminal(curr_node.t)) {
         int ar = genetic::detail::arity(curr_node.t);
-        std::vector<float> operand0 = std::move(eval_stack.back());
-        eval_stack.pop_back();
-        std::vector<float> operand1;
+        std::vector<float> op0 = std::move(eval_stack[sp - 1]);
+        sp--;
+        std::vector<float> op1;
         if (ar > 1) {
-          operand1 = std::move(eval_stack.back());
-          eval_stack.pop_back();
+          op1 = std::move(eval_stack[sp - 1]);
+          sp--;
         }
         std::vector<float> result(n_rows);
         for (uint64_t row = 0; row < n_rows; ++row) {
-          float in_vals[2] = { operand0[row], (ar > 1 ? operand1[row] : 0.0f) };
+          float in_vals[2] = { op0[row], (ar > 1 ? op1[row] : 0.0f) };
           result[row] = genetic::detail::evaluate_node(curr_node, data, n_rows, row, in_vals);
         }
-        eval_stack.push_back(std::move(result));
+        eval_stack[sp] = std::move(result);
+        sp++;
       } else {
         std::vector<float> result(n_rows);
         if (curr_node.t == node::type::constant) {
@@ -50,21 +55,16 @@ void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
         } else if (curr_node.t == node::type::variable) {
           int fid = curr_node.u.fid;
           const float* col_ptr = data + (fid * n_rows);
-          for (uint64_t row = 0; row < n_rows; ++row) {
-            result[row] = col_ptr[row];
-          }
+          std::copy(col_ptr, col_ptr + n_rows, result.begin());
         }
-        eval_stack.push_back(std::move(result));
+        eval_stack[sp] = std::move(result);
+        sp++;
       }
     }
-    std::vector<float> final_result = std::move(eval_stack.back());
-    eval_stack.pop_back();
-    for (uint64_t row = 0; row < n_rows; ++row) {
-      y_pred[pid * n_rows + row] = final_result[row];
-    }
+    std::vector<float> &final_result = eval_stack[sp - 1];
+    std::copy(final_result.begin(), final_result.end(), y_pred + pid * n_rows);
   }
 }
-
 program::program()
     : len(0), depth(0), raw_fitness_(0.0f), metric(metric_t::mse),
       mut_type(mutation_t::none), nodes(nullptr) {}
