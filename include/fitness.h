@@ -281,13 +281,12 @@ void rootMeanSquareError(const uint64_t n_samples, const uint64_t n_progs,
 }
 
 template <typename math_t = float>
-void logLoss(const uint64_t n_samples, const uint64_t n_progs, const math_t *Y,
-             const math_t *Y_pred, const math_t *W, math_t *out) {
-  // Logistic error per sample
-  std::vector<math_t> error(n_samples * n_progs);
-  math_t N = (math_t)n_samples;
+void logLoss(const uint64_t n_samples, const uint64_t n_progs,
+             const math_t *Y, const math_t *Y_pred, const math_t *W,
+             math_t *out) {
 
-  // Weight Sum
+  math_t N = static_cast<math_t>(n_samples);
+
   math_t WS = static_cast<math_t>(0);
   for (uint64_t i = 0; i < n_samples; ++i) {
     WS += W[i];
@@ -301,8 +300,9 @@ void logLoss(const uint64_t n_samples, const uint64_t n_progs, const math_t *Y,
   // adapt it for the weighted version (turned out pre-multiplying N just
   // worked). Improving numerical stability in CUDA is ... :)
 
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(static)
   for (uint64_t pid = 0; pid < n_progs; ++pid) {
+    math_t local_loss = 0;
     for (uint64_t i = 0; i < n_samples; ++i) {
       math_t logsig;
       math_t yp = Y_pred[pid * n_samples + i];
@@ -310,23 +310,16 @@ void logLoss(const uint64_t n_samples, const uint64_t n_progs, const math_t *Y,
       math_t w = W[i];
       if (yp < -33.3)
         logsig = yp;
-      else if (yp <= -18)
+      else if (yp <= -18.f)
         logsig = yp - expf(yp);
-      else if (yp <= 37)
+      else if (yp <= 37.f)
         logsig = -log1pf(expf(-yp));
       else
         logsig = -expf(-yp);
-      error[pid * n_samples + i] = ((1 - y) * yp - logsig) * (N * w / WS);
+      math_t term = (((1 - y) * yp) - logsig) * (N * w / WS);
+      local_loss += term / N;
     }
-  }
-
-  // Take average along rows
-  #pragma omp parallel for
-  for (uint64_t pid = 0; pid < n_progs; ++pid) {
-    out[pid] = static_cast<math_t>(0);
-    for (uint64_t i = 0; i < n_samples; ++i) {
-      out[pid] += error[pid * n_samples + i] / N;
-    }
+    out[pid] = local_loss;
   }
 }
 

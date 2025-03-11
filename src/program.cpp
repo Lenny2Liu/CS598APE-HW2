@@ -134,7 +134,7 @@ void find_fitness(program_t d_prog, float *score, const param &params,
   compute_metric(n_rows, 1, y, y_pred.data(), sample_weights, score, params);
 }
 
-void find_batched_fitness(int n_progs, program_t d_progs, float *score,
+void find_batched_fitness(int n_progs, program_t d_progs,
                           const param &params, const int n_rows,
                           const float *data, const float *y,
                           const float *sample_weights) {
@@ -143,8 +143,12 @@ void find_batched_fitness(int n_progs, program_t d_progs, float *score,
   execute(d_progs, n_rows, n_progs, data, y_pred.data());
 
   // Compute error
-  compute_metric(n_rows, n_progs, y, y_pred.data(), sample_weights, score,
+  std::vector<float> score(n_progs);
+  compute_metric(n_rows, n_progs, y, y_pred.data(), sample_weights, score.data(),
                  params);
+  for (int i = 0; i < n_progs; ++i) {
+    d_progs[i].raw_fitness_ = score[i];
+  }
 }
 
 void set_fitness(program &h_prog, const param &params, const int n_rows,
@@ -163,17 +167,11 @@ void set_batched_fitness(int n_progs, std::vector<program> &h_progs,
                          const param &params, const int n_rows,
                          const float *data, const float *y,
                          const float *sample_weights) {
-
-  std::vector<float> score(n_progs);
-
-  find_batched_fitness(n_progs, h_progs.data(), score.data(), params, n_rows,
+  find_batched_fitness(n_progs, h_progs.data(), params, n_rows,
                        data, y, sample_weights);
 
   // Update scores on host and device
   // TODO: Find a way to reduce the number of implicit memory transfers
-  for (auto i = 0; i < n_progs; ++i) {
-    h_progs[i].raw_fitness_ = score[i];
-  }
 }
 
 float get_fitness(const program &prog, const param &params) {
