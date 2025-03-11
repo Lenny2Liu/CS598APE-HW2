@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <fitness.h>
 #include <node.h>
+#include <omp.h>
 #include <numeric>
 #include <program.h>
 #include <random>
@@ -21,6 +22,7 @@ namespace genetic {
 template <int MaxSize = MAX_STACK_SIZE>
 void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
                     const uint64_t n_rows, const uint64_t n_progs) {
+  #pragma omp parallel for
   for (uint64_t pid = 0; pid < n_progs; ++pid) {
     // Pointer to the current program's AST
     program_t curr_p = d_progs + pid;
