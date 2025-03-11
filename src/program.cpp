@@ -30,16 +30,16 @@ void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
       const node &curr_node = curr_p->nodes[idx];
       if (genetic::detail::is_nonterminal(curr_node.t)) {
         int ar = genetic::detail::arity(curr_node.t);
-        std::vector<float> operand0 = std::move(eval_stack.back());
+        std::vector<float> op0 = std::move(eval_stack.back());
         eval_stack.pop_back();
-        std::vector<float> operand1;
+        std::vector<float> op1;
         if (ar > 1) {
-          operand1 = std::move(eval_stack.back());
+          op1 = std::move(eval_stack.back());
           eval_stack.pop_back();
         }
         std::vector<float> result(n_rows);
         for (uint64_t row = 0; row < n_rows; ++row) {
-          float in_vals[2] = { operand0[row], (ar > 1 ? operand1[row] : 0.0f) };
+          float in_vals[2] = { op0[row], (ar > 1 ? op1[row] : 0.0f) };
           result[row] = genetic::detail::evaluate_node(curr_node, data, n_rows, row, in_vals);
         }
         eval_stack.push_back(std::move(result));

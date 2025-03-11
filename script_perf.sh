@@ -9,6 +9,8 @@ FLAMEGRAPH_DIR="./FlameGraph"
 # Create output directory
 mkdir -p perf_results
 
+make clean && make -j
+
 # Loop through datasets
 for dataset in "${DATASETS[@]}"; do
     echo "Running perf for dataset: $dataset"
