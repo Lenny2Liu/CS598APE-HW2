@@ -7,12 +7,11 @@
 #include <cstdint>
 #include <fitness.h>
 #include <node.h>
-#include <omp.h>
 #include <numeric>
 #include <program.h>
 #include <random>
 #include <stack>
-
+#include <cstring>
 namespace genetic {
 
 /**
@@ -24,46 +23,59 @@ void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
                     const uint64_t n_rows, const uint64_t n_progs) {
   #pragma omp parallel for
   for (uint64_t pid = 0; pid < n_progs; ++pid) {
-    // Pointer to the current program's AST
-    program_t curr_p = d_progs + pid;
-    std::vector<std::vector<float>> eval_stack;
-    eval_stack.reserve(MaxSize);
+    const program_t curr_p = d_progs + pid;
+    std::vector<float> buffer(MaxSize * n_rows);
+    int top = -1;
+    auto push_ = [&](const float* src) {
+      ++top;
+      float* dst = &buffer[top * n_rows];
+      ::std::memcpy(dst, src, n_rows * sizeof(float));
+    };
+    auto push_f = [&](float val) {
+      ++top;
+      float* dst = &buffer[top * n_rows];
+      for (uint64_t i = 0; i < n_rows; ++i) {
+        dst[i] = val;
+      }
+    };
+
+    auto pop_ = [&]() -> float* {
+      float* ptr = &buffer[top * n_rows];
+      --top;
+      return ptr;
+    };
+
+    // Evaluate AST nodes in reverse order
     for (int idx = curr_p->len - 1; idx >= 0; --idx) {
       const node &curr_node = curr_p->nodes[idx];
       if (genetic::detail::is_nonterminal(curr_node.t)) {
         int ar = genetic::detail::arity(curr_node.t);
-        std::vector<float> op0 = std::move(eval_stack.back());
-        eval_stack.pop_back();
-        std::vector<float> op1;
-        if (ar > 1) {
-          op1 = std::move(eval_stack.back());
-          eval_stack.pop_back();
-        }
-        std::vector<float> result(n_rows);
+        float* op0 = pop_();
+        float* op1 = (ar > 1) ? pop_() : nullptr;
+        ++top;
+        float* result = &buffer[top * n_rows];
         for (uint64_t row = 0; row < n_rows; ++row) {
-          float in_vals[2] = { op0[row], (ar > 1 ? op1[row] : 0.0f) };
-          result[row] = genetic::detail::evaluate_node(curr_node, data, n_rows, row, in_vals);
+          float in_vals[2] = {
+            op0[row],
+            (ar > 1 ? op1[row] : 0.0f)
+          };
+          result[row] = genetic::detail::evaluate_node(
+              curr_node, data, n_rows, row, in_vals);
         }
-        eval_stack.push_back(std::move(result));
       } else {
-        std::vector<float> result(n_rows);
         if (curr_node.t == node::type::constant) {
-          std::fill(result.begin(), result.end(), curr_node.u.val);
-        } else if (curr_node.t == node::type::variable) {
+          push_f(curr_node.u.val);
+        } else {
           int fid = curr_node.u.fid;
           const float* col_ptr = data + (fid * n_rows);
-          for (uint64_t row = 0; row < n_rows; ++row) {
-            result[row] = col_ptr[row];
-          }
+          ++top;
+          float* dst = &buffer[top * n_rows];
+          ::std::memcpy(dst, col_ptr, n_rows * sizeof(float));
         }
-        eval_stack.push_back(std::move(result));
       }
     }
-    std::vector<float> final_result = std::move(eval_stack.back());
-    eval_stack.pop_back();
-    for (uint64_t row = 0; row < n_rows; ++row) {
-      y_pred[pid * n_rows + row] = final_result[row];
-    }
+    float* final_result = pop_();
+    ::std::memcpy(&y_pred[pid * n_rows], final_result, n_rows * sizeof(float));
   }
 }
 

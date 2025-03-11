@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # List of datasets
-DATASETS=("cancer")  # Add your dataset names here
+DATASETS=("housing")  # Add your dataset names here
 
 # Path to FlameGraph tools (adjust if needed)
 FLAMEGRAPH_DIR="./FlameGraph"
@@ -21,7 +21,7 @@ for dataset in "${DATASETS[@]}"; do
     # Process perf data
     echo "Generating flame graph for $dataset..."
     perf script | "$FLAMEGRAPH_DIR/stackcollapse-perf.pl" > perf_results/"$dataset".folded
-    "$FLAMEGRAPH_DIR/flamegraph.pl" perf_results/"$dataset".folded > perf_results/"$dataset"_vec.svg
+    "$FLAMEGRAPH_DIR/flamegraph.pl" perf_results/"$dataset".folded > perf_results/"$dataset"_log.svg
 
     echo "Flame graph for $dataset saved at perf_results/$dataset.svg"
 done
