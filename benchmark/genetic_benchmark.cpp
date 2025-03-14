@@ -155,15 +155,34 @@ void insertionSortPrograms_original(genetic::program *programs, int size) {
 }
 
 void insertionSortPrograms(genetic::program *programs, int size, std::vector<genetic::program *>& sorted_ptrs) {
-  sorted_ptrs.resize(size);
-  for (int i = 0; i < size; i++) {
-    sorted_ptrs[i] = &programs[i];
+  if (size < 2) {
+    sorted_ptrs.resize(size);
+    for (int i = 0; i < size; ++i) {
+      sorted_ptrs[i] = &programs[i];
+    }
+    return;
   }
 
-  std::sort(sorted_ptrs.begin(), sorted_ptrs.end(),
-            [](const genetic::program* a, const genetic::program* b) {
-              return a->raw_fitness_ < b->raw_fitness_;
-            });
+  int idx1 = 0;    
+  int idx2 = 1;  
+
+  if (programs[idx2].raw_fitness_ < programs[idx1].raw_fitness_) {
+    std::swap(idx1, idx2);
+  }
+
+  for (int i = 2; i < size; ++i) {
+    float val = programs[i].raw_fitness_;
+    if (val < programs[idx1].raw_fitness_) {
+      idx2 = idx1;
+      idx1 = i;
+    } else if (val < programs[idx2].raw_fitness_) {
+      idx2 = i;
+    }
+  }
+
+  sorted_ptrs.resize(2);
+  sorted_ptrs[0] = &programs[idx1];
+  sorted_ptrs[1] = &programs[idx2];
 }
 void run_symbolic_regression(const std::string &dataset_file) {
   std::cout << "\n===== Symbolic Regression Benchmark =====\n" << std::endl;
