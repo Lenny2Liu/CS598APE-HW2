@@ -22,8 +22,6 @@ for dataset in "${DATASETS[@]}"; do
     echo "Generating flame graph for $dataset..."
     perf script | "$FLAMEGRAPH_DIR/stackcollapse-perf.pl" > perf_results/"$dataset".folded
     "$FLAMEGRAPH_DIR/flamegraph.pl" perf_results/"$dataset".folded > perf_results/"$dataset"_log.svg
-
-    echo "Flame graph for $dataset saved at perf_results/$dataset.svg"
 done
 
 echo "All datasets processed. View flame graphs in the 'perf_results' folder."
