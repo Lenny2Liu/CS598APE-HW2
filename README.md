@@ -4,7 +4,7 @@ This repository contains code for homework 2 of 598APE.
 
 In particular, this repository is an implementation of Symbolic Regression and Classification.
 
-THE CODE is in DEV branch(for reviewer's reference)
+THE CODE is in DEV branch(for reviewer's reference), and can be reprodeced on Billy's docker
 To compile the program run:
 ```bash
 make -j
